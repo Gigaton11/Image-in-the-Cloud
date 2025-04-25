@@ -1,0 +1,51 @@
+﻿@{
+    ViewData["Title"] = "S3 Uploader Demo";
+}
+
+<div class="text-center">
+    <h1>Upload a File</h1>
+
+    <!-- Upload Form -->
+    <form asp-action="Upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" class="form-control" />
+        <button type="submit" class="btn btn-primary mt-3">Upload</button>
+    </form>
+
+    <!-- Download Section (Only shows after upload) -->
+    @if (!string.IsNullOrEmpty(ViewBag.ImageUrl))
+    {
+        <div class="mt-4">
+            <h4>Uploaded File:</h4>
+            <img src="@ViewBag.ImageUrl" class="img-thumbnail" width="200" />
+            <a href="/download/@ViewBag.FileName" class="btn btn-success mt-2">
+                <i class="bi bi-download"></i> Download
+            </a>
+        </div>
+    }
+
+    @if (ViewBag.RecentUploads != null)
+    {
+        <div class="mt-5">
+            <h4>Recent Uploads</h4>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Size (KB)</th>
+                        <th>Uploaded At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in ViewBag.RecentUploads)
+                    {
+                        <tr>
+                            <td>@file.FileName</td>
+                            <td>@(file.FileSize / 1024)</td>
+                            <td>@file.UploadTime.ToLocalTime()</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
