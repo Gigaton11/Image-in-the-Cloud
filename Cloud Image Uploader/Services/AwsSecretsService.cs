@@ -19,6 +19,7 @@ namespace Cloud_Image_Uploader.Services
         {
             try
             {
+                // AWSCURRENT ensures we read the active version unless caller needs staging labels.
                 var request = new GetSecretValueRequest
                 {
                     SecretId = secretName,
@@ -30,8 +31,7 @@ namespace Cloud_Image_Uploader.Services
             }
             catch (Exception ex)
             {
-                // Log error (consider using ILogger)
-                throw new Exception($"Failed to fetch secret '{secretName}': {ex.Message}");
+                throw new InvalidOperationException($"Failed to fetch secret '{secretName}'.", ex);
             }
         }
     }

@@ -1,4 +1,5 @@
 using Amazon.S3;
+using Cloud_Image_Uploader.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Cloud_Image_Uploader.Controllers
@@ -6,6 +7,15 @@ namespace Cloud_Image_Uploader.Controllers
 
     public class HomeController : Controller
     {
+        private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
+        };
+
+        private const long MaxUploadBytes = 10 * 1024 * 1024;
         private readonly S3Service _s3Service;
         private readonly DynamoDbService _dynamoDbService;
 
@@ -36,15 +46,14 @@ namespace Cloud_Image_Uploader.Controllers
                 return View("Index");
             }
 
-            if (file.Length > 10 * 1024 * 1024)
+            if (file.Length > MaxUploadBytes)
             {
                 TempData["Error"] = "File too big! Max 10 MB allowed.";
                 return View("Index");
             }
 
-            var allowed = new[] { ".jpg", ".jpeg", ".png", ".webp" };
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowed.Contains(ext))
+            if (!AllowedExtensions.Contains(ext))
             {
                 TempData["Error"] = "Only JPG, PNG and WebP images are allowed.";
                 return View("Index");
@@ -53,8 +62,10 @@ namespace Cloud_Image_Uploader.Controllers
             try
             {
                 string url = await _s3Service.UploadFileAsync(file);
-                var fileId = Path.GetFileName(url.Split('?')[0]);
+                // The generated S3 object key is encoded in the signed URL path.
+                var fileId = Path.GetFileName(new Uri(url).AbsolutePath);
 
+                // Persist upload metadata for later analytics/auditing.
                 await _dynamoDbService.TrackUploadAsync(new FileMetadata
                 {
                     FileId = fileId,

@@ -9,36 +9,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+// Use AWS SDK configuration from appsettings/environment.
 builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
 builder.Services.AddAWSService<IAmazonS3>();
 builder.Services.AddAWSService<IAmazonDynamoDB>();
 //builder.Services.AddAWSService<IAmazonSecretsManager>();
 //builder.Services.AddScoped<AwsSecretsService>();
 
+// Application services.
 builder.Services.AddSingleton<S3Service>();
 builder.Services.AddScoped<DynamoDbService>();
-builder.Services.AddScoped<IAmazonS3, AmazonS3Client>();
 
 builder.Services.AddSingleton<IDynamoDBContext>(provider =>
 {
+    // DynamoDBContext is thread-safe and can be reused application-wide.
     var client = provider.GetRequiredService<IAmazonDynamoDB>();
     return new DynamoDBContext(client);
 });
 
 var app = builder.Build();
-
-//
-if (app.Environment.IsDevelopment())
-{
-    app.UseDeveloperExceptionPage(); // Shows detailed errors
-}
-else
-{
-    app.UseExceptionHandler("/Home/Error");
-}
-//
-
-
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
