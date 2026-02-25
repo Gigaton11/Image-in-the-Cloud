@@ -80,7 +80,7 @@ namespace Cloud_Image_Uploader.Controllers
                 TempData["ImageUrl"] = url;
                 TempData["FileId"] = fileId;
                 TempData["FileName"] = file.FileName;
-                TempData["FileSize"] = file.Length;
+                TempData["FileSize"] = (file.Length / 1024.0).ToString("F2") + " KB";
                 
             }
             catch (Exception ex)
