@@ -6,6 +6,12 @@ using Cloud_Image_Uploader.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Load user secrets in development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
