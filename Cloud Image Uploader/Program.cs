@@ -31,8 +31,10 @@ var awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
 var awsRegionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
 
 builder.Services.AddSingleton<AWSCredentials>(awsCredentials);
-builder.Services.AddAWSService<IAmazonS3>(new AmazonS3Config { RegionEndpoint = awsRegionEndpoint });
-builder.Services.AddAWSService<IAmazonDynamoDB>(new AmazonDynamoDBConfig { RegionEndpoint = awsRegionEndpoint });
+builder.Services.AddSingleton<IAmazonS3>(provider => 
+    new AmazonS3Client(awsCredentials, new AmazonS3Config { RegionEndpoint = awsRegionEndpoint }));
+builder.Services.AddSingleton<IAmazonDynamoDB>(provider =>
+    new AmazonDynamoDBClient(awsCredentials, new AmazonDynamoDBConfig { RegionEndpoint = awsRegionEndpoint }));
 //builder.Services.AddAWSService<IAmazonSecretsManager>();
 //builder.Services.AddScoped<AwsSecretsService>();
 
