@@ -1,5 +1,7 @@
+using Amazon;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using Amazon.Runtime;
 using Amazon.S3;
 //using Amazon.SecretsManager;
 using Cloud_Image_Uploader.Services;
@@ -15,10 +17,22 @@ if (builder.Environment.IsDevelopment())
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Use AWS SDK configuration from appsettings/environment.
-builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
-builder.Services.AddAWSService<IAmazonS3>();
-builder.Services.AddAWSService<IAmazonDynamoDB>();
+// Configure AWS credentials from configuration (includes user secrets)
+var awsAccessKey = builder.Configuration["AWS:AccessKey"];
+var awsSecretKey = builder.Configuration["AWS:SecretKey"];
+var awsRegion = builder.Configuration["AWS:Region"] ?? "eu-north-1";
+
+if (string.IsNullOrEmpty(awsAccessKey) || string.IsNullOrEmpty(awsSecretKey))
+{
+    throw new InvalidOperationException("AWS credentials (AWS:AccessKey and AWS:SecretKey) are not configured. Please set them using 'dotnet user-secrets set'.");
+}
+
+var awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
+var awsRegionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
+
+builder.Services.AddSingleton<AWSCredentials>(awsCredentials);
+builder.Services.AddAWSService<IAmazonS3>(new AmazonS3Config { RegionEndpoint = awsRegionEndpoint });
+builder.Services.AddAWSService<IAmazonDynamoDB>(new AmazonDynamoDBConfig { RegionEndpoint = awsRegionEndpoint });
 //builder.Services.AddAWSService<IAmazonSecretsManager>();
 //builder.Services.AddScoped<AwsSecretsService>();
 
