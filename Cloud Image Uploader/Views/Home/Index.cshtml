@@ -3,7 +3,7 @@
 }
 
 <div class="text-center">
-    <h1>Upload a File</h1>
+    <h1>Upload an Image</h1>
 
     <!-- Upload Form -->
     <form asp-action="Upload" method="post" enctype="multipart/form-data">
@@ -48,4 +48,19 @@
             </table>
         </div>
     }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">
+            @TempData["Success"]
+            <br><strong>Link:</strong>
+            <a href="@TempData["ImageUrl"]" target="_blank">@TempData["ImageUrl"]</a>
+            <br><small>Direct download: <a href="/download/@TempData["FileId"]">Click here</a></small>
+        </div>
+    }
+
 </div>
