@@ -61,9 +61,7 @@ namespace Cloud_Image_Uploader.Controllers
 
             try
             {
-                string url = await _s3Service.UploadFileAsync(file);
-                // The generated S3 object key is encoded in the signed URL path.
-                var fileId = Path.GetFileName(new Uri(url).AbsolutePath);
+                string fileId = await _s3Service.UploadFileAsync(file);
 
                 // Persist upload metadata for later analytics/auditing.
                 await _dynamoDbService.TrackUploadAsync(new FileMetadata
@@ -77,7 +75,7 @@ namespace Cloud_Image_Uploader.Controllers
                 });
 
                 TempData["Success"] = "Upload successful! Share this link (expires in 10 min):";
-                TempData["ImageUrl"] = url;
+                TempData["ShareUrl"] = $"/share/{fileId}";
                 TempData["FileId"] = fileId;
                 TempData["FileName"] = file.FileName;
                 TempData["FileSize"] = (file.Length / 1024.0).ToString("F2") + " KB";
@@ -89,6 +87,21 @@ namespace Cloud_Image_Uploader.Controllers
             }
 
             return View("Index");
+        }
+
+        [HttpGet("share/{fileId}")]
+        public IActionResult Share(string fileId)
+        {
+            try
+            {
+                // Generate a fresh signed URL server-side
+                var signedUrl = _s3Service.GetPreSignedUrl(fileId);
+                return Redirect(signedUrl);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Error generating share link: {ex.Message}");
+            }
         }
 
 

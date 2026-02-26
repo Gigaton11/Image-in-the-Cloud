@@ -27,7 +27,7 @@ public class S3Service
         _transferUtility = new TransferUtility(_s3Client);
     }
 
-    // Uploads a file and returns a short-lived URL for secure sharing.
+    // Uploads a file and returns the file key.
     public async Task<string> UploadFileAsync(IFormFile file)
     {
         ValidateUpload(file);
@@ -43,7 +43,7 @@ public class S3Service
         };
 
         await _transferUtility.UploadAsync(uploadRequest);
-        return GetPreSignedUrl(fileName);
+        return fileName;
     }
 
     public async Task<Stream> DownloadFileAsync(string key)
@@ -81,7 +81,7 @@ public class S3Service
             throw new ArgumentException("File is not a valid image format.");
     }
 
-    private string GetPreSignedUrl(string key)
+    public string GetPreSignedUrl(string key)
     {
         var request = new GetPreSignedUrlRequest
         {
@@ -91,5 +91,19 @@ public class S3Service
         };
 
         return _s3Client.GetPreSignedURL(request);
+    }
+
+    public static string MaskUrl(string url)
+    {
+        if (string.IsNullOrEmpty(url))
+            return url;
+
+        // Remove query parameters (contain credentials and signatures)
+        var baseUrl = url.Split('?')[0];
+        
+        // Extract just the filename from the path
+        var fileName = Path.GetFileName(baseUrl);
+        
+        return fileName;
     }
 }
