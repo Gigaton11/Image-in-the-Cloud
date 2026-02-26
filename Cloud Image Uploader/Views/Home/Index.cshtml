@@ -58,9 +58,21 @@
         <div class="alert alert-success">
             @TempData["Success"]
             <br><strong>Link:</strong>
-            <a href="@TempData["ShareUrl"]" target="_blank">@TempData["ShareUrl"]</a>
-            <br><small>Direct download: <a href="/download/@TempData["FileId"]">Click here</a></small>
+            <a id="shareLink" href="@TempData["ShareUrl"]" target="_blank">Your Image</a>
+            <br>
+            <button id="copyBtn" class="btn btn-secondary btn-sm mt-2">Copy URL</button>
+            <br><small>Note: the link will expire 10 minutes after upload.</small>
         </div>
+        <script>
+            document.getElementById('copyBtn').addEventListener('click', function() {
+                const url = document.getElementById('shareLink').href;
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('Link copied to clipboard');
+                }).catch(err => {
+                    console.error('Copy failed', err);
+                });
+            });
+        </script>
     }
 
 </div>

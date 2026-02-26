@@ -75,7 +75,7 @@ namespace Cloud_Image_Uploader.Controllers
                 });
 
                 TempData["Success"] = "Upload successful! Share this link (expires in 10 min):";
-                TempData["ShareUrl"] = $"/share/{fileId}";
+                TempData["ShareUrl"] = $"/download/{fileId}";
                 TempData["FileId"] = fileId;
                 TempData["FileName"] = file.FileName;
                 TempData["FileSize"] = (file.Length / 1024.0).ToString("F2") + " KB";
@@ -89,27 +89,23 @@ namespace Cloud_Image_Uploader.Controllers
             return View("Index");
         }
 
-        [HttpGet("share/{fileId}")]
-        public IActionResult Share(string fileId)
-        {
-            try
-            {
-                // Generate a fresh signed URL server-side
-                var signedUrl = _s3Service.GetPreSignedUrl(fileId);
-                return Redirect(signedUrl);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error generating share link: {ex.Message}");
-            }
-        }
-
-
         [HttpGet("download/{fileName}")]
         public async Task<IActionResult> Download(string fileName)
         {
             try
             {
+                // verify expiration
+                var metadata = await _dynamoDbService.GetFileMetadataAsync(fileName);
+                if (metadata == null)
+                {
+                    return NotFound("File metadata not found");
+                }
+
+                if (DateTime.UtcNow > metadata.UploadTime.AddMinutes(10))
+                {
+                    return BadRequest("Share link has expired");
+                }
+
                 // Track download (example: use email from claims or "anonymous")
                 var user = User.Identity?.Name ?? "anonymous";
                 await _dynamoDbService.TrackDownloadAsync(fileName, user);
@@ -126,5 +122,8 @@ namespace Cloud_Image_Uploader.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+
+
     }
 }

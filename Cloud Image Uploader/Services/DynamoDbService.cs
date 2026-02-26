@@ -32,6 +32,11 @@ public class DynamoDbService
 
         return results.OrderByDescending(x => x.UploadTime).Take(count).ToList();
     }
+
+    public async Task<FileMetadata?> GetFileMetadataAsync(string fileId)
+    {
+        return await _dbContext.LoadAsync<FileMetadata>(fileId);
+    }
 }
 
 
