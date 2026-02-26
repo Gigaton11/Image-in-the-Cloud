@@ -5,7 +5,7 @@
 <div class="text-center">
     <h1>Upload an Image</h1>
 
-    <!-- Upload Form -->
+    <!-- File Upload Form -->
     <form asp-action="Upload" method="post" enctype="multipart/form-data">
         <input type="file" name="file" class="form-control" />
         <button type="submit" class="btn btn-primary mt-3">Upload</button>
@@ -51,21 +51,30 @@
 
     @if (TempData["Error"] != null)
     {
+        <!-- Display error messages if upload fails -->
         <div class="alert alert-danger">@TempData["Error"]</div>
     }
+
     @if (TempData["Success"] != null)
     {
+        <!-- Display success message with shareable link and copy button -->
         <div class="alert alert-success">
             @TempData["Success"]
             <br><strong>Link:</strong>
+            <!-- The link points to our server endpoint, not directly to S3 (credentials hidden) -->
             <a id="shareLink" href="@TempData["ShareUrl"]" target="_blank">Your Image</a>
             <br>
+            <!-- Copy button allows users to copy the link to clipboard -->
             <button id="copyBtn" class="btn btn-secondary btn-sm mt-2">Copy URL</button>
             <br><small>Note: the link will expire 10 minutes after upload.</small>
         </div>
+
         <script>
+            // Copy link to clipboard when button is clicked
             document.getElementById('copyBtn').addEventListener('click', function() {
+                // Get the href attribute which contains the full share URL
                 const url = document.getElementById('shareLink').href;
+                // Use modern Clipboard API to copy
                 navigator.clipboard.writeText(url).then(() => {
                     alert('Link copied to clipboard');
                 }).catch(err => {
