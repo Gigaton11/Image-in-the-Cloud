@@ -11,10 +11,15 @@ public class DynamoDbService
     // DynamoDB context for ORM-like operations.
     private readonly IDynamoDBContext _dbContext;
 
+    // Logger for DynamoDbService operations.
+    private readonly ILogger<DynamoDbService> _logger;
+
     // Constructor that initializes the DynamoDB context.
-    public DynamoDbService(IAmazonDynamoDB dynamoDbClient)
+    public DynamoDbService(IAmazonDynamoDB dynamoDbClient, ILogger<DynamoDbService> logger)
     {
+        _logger = logger;
         _dbContext = new DynamoDBContext(dynamoDbClient);
+        _logger.LogInformation("DynamoDbService initialized");
     }
 
     //
@@ -23,7 +28,18 @@ public class DynamoDbService
     //
     public async Task TrackUploadAsync(FileMetadata fileMetadata)
     {
-        await _dbContext.SaveAsync(fileMetadata);
+        try
+        {
+            _logger.LogInformation("Tracking upload: FileId={FileId}, FileName={FileName}, Size={FileSizeBytes}", 
+                fileMetadata.FileId, fileMetadata.FileName, fileMetadata.FileSize);
+            await _dbContext.SaveAsync(fileMetadata);
+            _logger.LogInformation("Upload tracked successfully: {FileId}", fileMetadata.FileId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to track upload: {FileId}", fileMetadata.FileId);
+            throw;
+        }
     }
 
     //
@@ -32,12 +48,22 @@ public class DynamoDbService
     //
     public async Task TrackDownloadAsync(string fileId, string downloadedBy)
     {
-        await _dbContext.SaveAsync(new DownloadRecord
+        try
         {
-            FileId = fileId,
-            DownloadTime = DateTime.UtcNow,
-            DownloadedBy = downloadedBy
-        });
+            _logger.LogInformation("Tracking download: FileId={FileId}, DownloadedBy={DownloadedBy}", fileId, downloadedBy);
+            await _dbContext.SaveAsync(new DownloadRecord
+            {
+                FileId = fileId,
+                DownloadTime = DateTime.UtcNow,
+                DownloadedBy = downloadedBy
+            });
+            _logger.LogInformation("Download tracked successfully: {FileId}", fileId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to track download: {FileId}", fileId);
+            throw;
+        }
     }
 
     //
@@ -46,11 +72,22 @@ public class DynamoDbService
     //
     public async Task<List<FileMetadata>> GetRecentUploads(int count = 10)
     {
-        var conditions = new List<ScanCondition>();
-        var results = await _dbContext.ScanAsync<FileMetadata>(conditions)
-            .GetRemainingAsync();
+        try
+        {
+            _logger.LogInformation("Retrieving recent uploads: Count={Count}", count);
+            var conditions = new List<ScanCondition>();
+            var results = await _dbContext.ScanAsync<FileMetadata>(conditions)
+                .GetRemainingAsync();
 
-        return results.OrderByDescending(x => x.UploadTime).Take(count).ToList();
+            var recentUploads = results.OrderByDescending(x => x.UploadTime).Take(count).ToList();
+            _logger.LogInformation("Retrieved {ResultCount} recent uploads", recentUploads.Count);
+            return recentUploads;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve recent uploads");
+            throw;
+        }
     }
 
     //
@@ -59,7 +96,44 @@ public class DynamoDbService
     //
     public async Task<FileMetadata?> GetFileMetadataAsync(string fileId)
     {
-        return await _dbContext.LoadAsync<FileMetadata>(fileId);
+        try
+        {
+            _logger.LogInformation("Retrieving file metadata: {FileId}", fileId);
+            var metadata = await _dbContext.LoadAsync<FileMetadata>(fileId);
+            if (metadata == null)
+            {
+                _logger.LogWarning("File metadata not found: {FileId}", fileId);
+            }
+            else
+            {
+                _logger.LogInformation("File metadata retrieved: {FileId}", fileId);
+            }
+            return metadata;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve file metadata: {FileId}", fileId);
+            throw;
+        }
+    }
+
+    //
+    // Removes file metadata from DynamoDB.
+    // Should be called when a file is deleted to clean up records.
+    //
+    public async Task RemoveFileMetadataAsync(string fileId)
+    {
+        try
+        {
+            _logger.LogInformation("Removing file metadata: {FileId}", fileId);
+            await _dbContext.DeleteAsync<FileMetadata>(fileId);
+            _logger.LogInformation("File metadata removed successfully: {FileId}", fileId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to remove file metadata: {FileId}", fileId);
+            throw;
+        }
     }
 }
 

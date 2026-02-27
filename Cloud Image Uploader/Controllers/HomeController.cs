@@ -28,11 +28,16 @@ namespace Cloud_Image_Uploader.Controllers
         // Service for tracking uploads/downloads in DynamoDB.
         private readonly DynamoDbService _dynamoDbService;
 
+        // Logger for HomeController operations.
+        private readonly ILogger<HomeController> _logger;
+
         // Constructor with dependency injection of S3 and DynamoDB services.
-        public HomeController(S3Service s3Service, DynamoDbService dynamoDbService)
+        public HomeController(S3Service s3Service, DynamoDbService dynamoDbService, ILogger<HomeController> logger)
         {
             _s3Service = s3Service;
             _dynamoDbService = dynamoDbService;
+            _logger = logger;
+            _logger.LogInformation("HomeController initialized");
         }
 
         //GET / - Loads the main upload page.
@@ -63,6 +68,7 @@ namespace Cloud_Image_Uploader.Controllers
             // Validate file is present
             if (file == null)
             {
+                _logger.LogWarning("Upload attempt with no file provided");
                 TempData["Error"] = "Please select a file!";
                 return View("Index");
             }
@@ -70,6 +76,7 @@ namespace Cloud_Image_Uploader.Controllers
             // Validate file size (10 MB max)
             if (file.Length > MaxUploadBytes)
             {
+                _logger.LogWarning("Upload attempt with oversized file: {FileName}, Size={FileSizeBytes}", file.FileName, file.Length);
                 TempData["Error"] = "File too big! Max 10 MB allowed.";
                 return View("Index");
             }
@@ -85,6 +92,7 @@ namespace Cloud_Image_Uploader.Controllers
             try
             {
                 // Upload to S3 - returns the file key
+                _logger.LogInformation("Processing file upload: {FileName}", file.FileName);
                 string fileId = await _s3Service.UploadFileAsync(file);
 
                 // Store metadata in DynamoDB for tracking and expiration checking
@@ -99,6 +107,7 @@ namespace Cloud_Image_Uploader.Controllers
                 });
 
                 // Prepare UI data for the download page
+                _logger.LogInformation("File upload completed successfully: {FileId}", fileId);
                 TempData["Success"] = "Upload successful! Share this link (expires in 10 min):";
                 TempData["ShareUrl"] = $"/download/{fileId}"; // Server-side link
                 TempData["FileId"] = fileId;
@@ -108,6 +117,7 @@ namespace Cloud_Image_Uploader.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "File upload failed: {FileName}", file.FileName);
                 TempData["Error"] = "Upload failed: " + ex.Message;
             }
 
@@ -127,21 +137,26 @@ namespace Cloud_Image_Uploader.Controllers
         {
             try
             {
+                _logger.LogInformation("Download request: {FileId}", fileName);
+
                 // Retrieve metadata to check expiration and existence
                 var metadata = await _dynamoDbService.GetFileMetadataAsync(fileName);
                 if (metadata == null)
                 {
+                    _logger.LogWarning("Download request failed - metadata not found: {FileId}", fileName);
                     return NotFound("File metadata not found");
                 }
 
                 // Check if link has expired (10 minutes after upload)
                 if (DateTime.UtcNow > metadata.UploadTime.AddMinutes(10))
                 {
+                    _logger.LogWarning("Download request failed - link expired: {FileId}", fileName);
                     return BadRequest("Share link has expired");
                 }
 
                 // Log the download for analytics
                 var user = User.Identity?.Name ?? "anonymous";
+                _logger.LogInformation("Download authorized: {FileId}, DownloadedBy={User}", fileName, user);
                 await _dynamoDbService.TrackDownloadAsync(fileName, user);
 
                 // Stream file from S3 - credentials are server-side only
@@ -150,14 +165,71 @@ namespace Cloud_Image_Uploader.Controllers
             }
             catch (AmazonS3Exception ex)
             {
+                _logger.LogError(ex, "Download failed - S3 error: {FileId}", fileName);
                 return NotFound($"File not found: {ex.Message}");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Download failed - internal error: {FileId}", fileName);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
+        //
+        // POST /delete/{fileId} - Securely delete a file.
+        // Removes the file from S3 storage and metadata from DynamoDB.
+        // This is restricted to files that haven't expired yet (10 minute window).
+        // Useful for users who want to revoke access to shared files.
+        //
+        [HttpPost("delete/{fileId}")]
+        public async Task<IActionResult> Delete(string fileId)
+        {
+            try
+            {
+                _logger.LogInformation("Delete request: {FileId}", fileId);
+
+                // Retrieve metadata to verify file exists and check if still valid
+                var metadata = await _dynamoDbService.GetFileMetadataAsync(fileId);
+                if (metadata == null)
+                {
+                    _logger.LogWarning("Delete request failed - metadata not found: {FileId}", fileId);
+                    TempData["Error"] = "File not found. May have already expired.";
+                    return View("Index");
+                }
+
+                // Check if link has expired
+                if (DateTime.UtcNow > metadata.UploadTime.AddMinutes(10))
+                {
+                    _logger.LogWarning("Delete request failed - link expired: {FileId}", fileId);
+                    TempData["Error"] = "File has already expired. Cannot delete.";
+                    return View("Index");
+                }
+
+                // Delete file from S3
+                _logger.LogInformation("Deleting file from S3: {FileId}", fileId);
+                await _s3Service.DeleteFileAsync(fileId);
+
+                // Remove metadata from DynamoDB
+                _logger.LogInformation("Removing metadata from DynamoDB: {FileId}", fileId);
+                await _dynamoDbService.RemoveFileMetadataAsync(fileId);
+
+                _logger.LogInformation("File deleted successfully: {FileId}", fileId);
+                TempData["Success"] = "File deleted successfully! Access revoked for all shares.";
+                return View("Index");
+            }
+            catch (AmazonS3Exception ex)
+            {
+                _logger.LogError(ex, "Delete failed - S3 error: {FileId}", fileId);
+                TempData["Error"] = $"Delete failed (S3 error): {ex.Message}";
+                return View("Index");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Delete failed - internal error: {FileId}", fileId);
+                TempData["Error"] = $"Delete failed: {ex.Message}";
+                return View("Index");
+            }
+        }
 
 
     }
