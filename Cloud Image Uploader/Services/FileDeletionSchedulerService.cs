@@ -24,6 +24,7 @@ public class FileDeletionSchedulerService
 
     public void ScheduleDelete(string fileId, TimeSpan delay)
     {
+        // Prevent duplicate timers for the same file key.
         if (!_scheduled.TryAdd(fileId, 0))
         {
             return;
@@ -34,6 +35,7 @@ public class FileDeletionSchedulerService
             try
             {
                 _logger.LogInformation("Scheduled deletion for {FileId} in {DelayMinutes} minute(s)", fileId, delay.TotalMinutes);
+                // On restart recovery, delay can be <= 0, so delete immediately.
                 if (delay > TimeSpan.Zero)
                 {
                     await Task.Delay(delay);
@@ -53,6 +55,7 @@ public class FileDeletionSchedulerService
 
     public async Task DeleteFileAndMetadataAsync(string fileId)
     {
+        // Resolve scoped services here so this method is safe from background tasks.
         using var scope = _scopeFactory.CreateScope();
         var s3Service = scope.ServiceProvider.GetRequiredService<S3Service>();
         var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();

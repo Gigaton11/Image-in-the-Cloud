@@ -157,7 +157,8 @@ namespace Cloud_Image_Uploader.Controllers
                 }
 
                 // Check if link has expired (10 minutes after upload)
-                if (DateTime.UtcNow > metadata.UploadTime.AddMinutes(10))
+                var uploadTimeUtc = DynamoDbService.NormalizeUtc(metadata.UploadTime);
+                if (DateTime.UtcNow > uploadTimeUtc.AddMinutes(10))
                 {
                     _logger.LogWarning("Download request failed - link expired: {FileId}", fileName);
                     await _fileDeletionSchedulerService.DeleteFileAndMetadataAsync(fileName);

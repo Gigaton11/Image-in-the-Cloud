@@ -14,6 +14,18 @@ public class DynamoDbService
     // Logger for DynamoDbService operations.
     private readonly ILogger<DynamoDbService> _logger;
 
+    public static DateTime NormalizeUtc(DateTime value)
+    {
+        // DynamoDB DateTime materialization may produce Unspecified kind.
+        // Treat it as UTC to keep expiration checks deterministic.
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+    }
+
     // Constructor that initializes the DynamoDB context.
     public DynamoDbService(IAmazonDynamoDB dynamoDbClient, ILogger<DynamoDbService> logger)
     {
@@ -151,7 +163,7 @@ public class DynamoDbService
             var allMetadata = await _dbContext.ScanAsync<FileMetadata>(conditions).GetRemainingAsync();
 
             var expiredFileIds = allMetadata
-                .Where(x => x.UploadTime <= cutoffUtc)
+                .Where(x => NormalizeUtc(x.UploadTime) <= cutoffUtc)
                 .OrderBy(x => x.UploadTime)
                 .Take(maxCount)
                 .Select(x => x.FileId)

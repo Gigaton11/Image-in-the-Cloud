@@ -7,6 +7,13 @@ using Amazon.S3;
 using Cloud_Image_Uploader.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+// Force UTC timestamps in logs so expiration/debug timings match server-side checks.
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff 'UTC' ";
+    options.UseUtcTimestamp = true;
+});
 
 // Load user secrets in development
 if (builder.Environment.IsDevelopment())

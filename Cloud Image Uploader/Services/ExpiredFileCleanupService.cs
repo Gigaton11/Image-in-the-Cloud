@@ -26,6 +26,7 @@ public class ExpiredFileCleanupService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Expired file cleanup worker started");
+        // First pass after restart: catch up overdue files and re-schedule pending ones.
         await RehydrateSchedulesAndCleanupExpiredAsync(stoppingToken);
 
         using var timer = new PeriodicTimer(ScanInterval);
@@ -58,6 +59,7 @@ public class ExpiredFileCleanupService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
 
+        // Safety net in case per-file scheduled task was missed.
         var expiredFileIds = await dynamoDbService.GetExpiredFileIdsAsync(ExpirationWindow);
         if (expiredFileIds.Count == 0)
         {
@@ -102,7 +104,9 @@ public class ExpiredFileCleanupService : BackgroundService
                 break;
             }
 
-            var expiresAtUtc = file.UploadTime.Add(ExpirationWindow);
+            // UploadTime from DynamoDB can be unspecified kind; normalize before comparisons.
+            var uploadTimeUtc = DynamoDbService.NormalizeUtc(file.UploadTime);
+            var expiresAtUtc = uploadTimeUtc.Add(ExpirationWindow);
             if (expiresAtUtc <= nowUtc)
             {
                 try

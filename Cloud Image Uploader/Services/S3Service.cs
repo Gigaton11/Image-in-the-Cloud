@@ -134,12 +134,68 @@ public class S3Service
                 BucketName = _bucketName,
                 Key = key
             });
-            _logger.LogInformation("File deleted successfully: {FileKey}", key);
+            _logger.LogInformation("DeleteObject completed for key: {FileKey}", key);
+
+            // If bucket versioning is enabled, also remove historical versions/delete markers
+            // so the object is fully purged from storage.
+            await DeleteAllVersionsIfAnyAsync(key);
+            _logger.LogInformation("File deleted successfully (including versions when accessible): {FileKey}", key);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "File deletion failed for: {FileKey}", key);
             throw;
+        }
+    }
+
+    private async Task DeleteAllVersionsIfAnyAsync(string key)
+    {
+        // Pagination markers for ListVersions.
+        string? keyMarker = null;
+        string? versionIdMarker = null;
+
+        try
+        {
+            var hasMore = false;
+            do
+            {
+                // Enumerate all object versions for this key and hard-delete them.
+                var versionsResponse = await _s3Client.ListVersionsAsync(new ListVersionsRequest
+                {
+                    BucketName = _bucketName,
+                    Prefix = key,
+                    KeyMarker = keyMarker,
+                    VersionIdMarker = versionIdMarker
+                });
+
+                foreach (var version in versionsResponse.Versions.Where(v => string.Equals(v.Key, key, StringComparison.Ordinal)))
+                {
+                    if (string.IsNullOrEmpty(version.VersionId))
+                    {
+                        continue;
+                    }
+
+                    await _s3Client.DeleteObjectAsync(new DeleteObjectRequest
+                    {
+                        BucketName = _bucketName,
+                        Key = key,
+                        VersionId = version.VersionId
+                    });
+                }
+
+                keyMarker = versionsResponse.NextKeyMarker;
+                versionIdMarker = versionsResponse.NextVersionIdMarker;
+                hasMore = versionsResponse.IsTruncated;
+            }
+            while (hasMore);
+        }
+        catch (AmazonS3Exception ex) when (ex.ErrorCode == "AccessDenied" || ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            // Keep base delete behavior even if version purge permissions are missing.
+            _logger.LogWarning(
+                ex,
+                "Could not list/delete object versions for {FileKey}. Grant s3:ListBucketVersions and s3:DeleteObjectVersion for full purge.",
+                key);
         }
     }
 
