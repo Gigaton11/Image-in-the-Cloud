@@ -135,6 +135,58 @@ public class DynamoDbService
             throw;
         }
     }
+
+    //
+    // Returns file IDs that are older than the specified age and should be removed.
+    // Used by background cleanup to enforce automatic expiration/deletion.
+    //
+    public async Task<List<string>> GetExpiredFileIdsAsync(TimeSpan maxAge, int maxCount = 200)
+    {
+        try
+        {
+            var cutoffUtc = DateTime.UtcNow.Subtract(maxAge);
+            _logger.LogInformation("Scanning for expired files. CutoffUtc={CutoffUtc}", cutoffUtc);
+
+            var conditions = new List<ScanCondition>();
+            var allMetadata = await _dbContext.ScanAsync<FileMetadata>(conditions).GetRemainingAsync();
+
+            var expiredFileIds = allMetadata
+                .Where(x => x.UploadTime <= cutoffUtc)
+                .OrderBy(x => x.UploadTime)
+                .Take(maxCount)
+                .Select(x => x.FileId)
+                .ToList();
+
+            _logger.LogInformation("Expired file scan completed. Found={ExpiredCount}", expiredFileIds.Count);
+            return expiredFileIds;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to scan expired files");
+            throw;
+        }
+    }
+
+    //
+    // Retrieves all file metadata records.
+    // Used on startup to recover pending deletions after process restarts.
+    //
+    public async Task<List<FileMetadata>> GetAllFileMetadataAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Retrieving all file metadata records");
+            var conditions = new List<ScanCondition>();
+            var results = await _dbContext.ScanAsync<FileMetadata>(conditions).GetRemainingAsync();
+            _logger.LogInformation("Retrieved {Count} file metadata record(s)", results.Count);
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve all file metadata records");
+            throw;
+        }
+    }
 }
 
 //

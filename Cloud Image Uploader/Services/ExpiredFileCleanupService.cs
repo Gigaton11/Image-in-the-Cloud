@@ -1,0 +1,131 @@
+namespace Cloud_Image_Uploader.Services;
+
+//
+// Background worker that deletes files from S3 after 10 minutes and
+// removes their metadata from DynamoDB.
+//
+public class ExpiredFileCleanupService : BackgroundService
+{
+    private static readonly TimeSpan ExpirationWindow = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(1);
+
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly FileDeletionSchedulerService _fileDeletionSchedulerService;
+    private readonly ILogger<ExpiredFileCleanupService> _logger;
+
+    public ExpiredFileCleanupService(
+        IServiceScopeFactory scopeFactory,
+        FileDeletionSchedulerService fileDeletionSchedulerService,
+        ILogger<ExpiredFileCleanupService> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _fileDeletionSchedulerService = fileDeletionSchedulerService;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Expired file cleanup worker started");
+        await RehydrateSchedulesAndCleanupExpiredAsync(stoppingToken);
+
+        using var timer = new PeriodicTimer(ScanInterval);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await CleanupExpiredFilesAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Expired file cleanup cycle failed");
+            }
+
+            try
+            {
+                await timer.WaitForNextTickAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+
+        _logger.LogInformation("Expired file cleanup worker stopped");
+    }
+
+    private async Task CleanupExpiredFilesAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
+
+        var expiredFileIds = await dynamoDbService.GetExpiredFileIdsAsync(ExpirationWindow);
+        if (expiredFileIds.Count == 0)
+        {
+            return;
+        }
+
+        _logger.LogInformation("Deleting {Count} expired file(s)", expiredFileIds.Count);
+
+        foreach (var fileId in expiredFileIds)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            try
+            {
+                await _fileDeletionSchedulerService.DeleteFileAndMetadataAsync(fileId);
+                _logger.LogInformation("Expired file deleted successfully: {FileId}", fileId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete expired file: {FileId}", fileId);
+            }
+        }
+    }
+
+    private async Task RehydrateSchedulesAndCleanupExpiredAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
+        var allFiles = await dynamoDbService.GetAllFileMetadataAsync();
+
+        var nowUtc = DateTime.UtcNow;
+        var scheduledCount = 0;
+        var deletedCount = 0;
+
+        foreach (var file in allFiles)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            var expiresAtUtc = file.UploadTime.Add(ExpirationWindow);
+            if (expiresAtUtc <= nowUtc)
+            {
+                try
+                {
+                    await _fileDeletionSchedulerService.DeleteFileAndMetadataAsync(file.FileId);
+                    deletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Startup cleanup failed for expired file: {FileId}", file.FileId);
+                }
+
+                continue;
+            }
+
+            var remaining = expiresAtUtc - nowUtc;
+            _fileDeletionSchedulerService.ScheduleDelete(file.FileId, remaining);
+            scheduledCount++;
+        }
+
+        _logger.LogInformation(
+            "Startup deletion recovery complete. Scheduled={ScheduledCount}, DeletedNow={DeletedCount}",
+            scheduledCount,
+            deletedCount);
+    }
+}

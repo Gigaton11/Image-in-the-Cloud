@@ -30,12 +30,18 @@ namespace Cloud_Image_Uploader.Controllers
 
         // Logger for HomeController operations.
         private readonly ILogger<HomeController> _logger;
+        private readonly FileDeletionSchedulerService _fileDeletionSchedulerService;
 
         // Constructor with dependency injection of S3 and DynamoDB services.
-        public HomeController(S3Service s3Service, DynamoDbService dynamoDbService, ILogger<HomeController> logger)
+        public HomeController(
+            S3Service s3Service,
+            DynamoDbService dynamoDbService,
+            FileDeletionSchedulerService fileDeletionSchedulerService,
+            ILogger<HomeController> logger)
         {
             _s3Service = s3Service;
             _dynamoDbService = dynamoDbService;
+            _fileDeletionSchedulerService = fileDeletionSchedulerService;
             _logger = logger;
             _logger.LogInformation("HomeController initialized");
         }
@@ -106,6 +112,9 @@ namespace Cloud_Image_Uploader.Controllers
                     UploadedBy = "anonymous"
                 });
 
+                // Schedule automatic hard-delete after 10 minutes.
+                _fileDeletionSchedulerService.ScheduleDelete(fileId, TimeSpan.FromMinutes(10));
+
                 // Prepare UI data for the download page
                 _logger.LogInformation("File upload completed successfully: {FileId}", fileId);
                 TempData["Success"] = "Upload successful! Share this link (expires in 10 min):";
@@ -151,6 +160,7 @@ namespace Cloud_Image_Uploader.Controllers
                 if (DateTime.UtcNow > metadata.UploadTime.AddMinutes(10))
                 {
                     _logger.LogWarning("Download request failed - link expired: {FileId}", fileName);
+                    await _fileDeletionSchedulerService.DeleteFileAndMetadataAsync(fileName);
                     return BadRequest("Share link has expired");
                 }
 
@@ -194,14 +204,6 @@ namespace Cloud_Image_Uploader.Controllers
                 {
                     _logger.LogWarning("Delete request failed - metadata not found: {FileId}", fileId);
                     TempData["Error"] = "File not found. May have already expired.";
-                    return View("Index");
-                }
-
-                // Check if link has expired
-                if (DateTime.UtcNow > metadata.UploadTime.AddMinutes(10))
-                {
-                    _logger.LogWarning("Delete request failed - link expired: {FileId}", fileId);
-                    TempData["Error"] = "File has already expired. Cannot delete.";
                     return View("Index");
                 }
 

@@ -41,6 +41,8 @@ builder.Services.AddSingleton<IAmazonDynamoDB>(provider =>
 // Application services.
 builder.Services.AddSingleton<S3Service>();
 builder.Services.AddScoped<DynamoDbService>();
+builder.Services.AddSingleton<FileDeletionSchedulerService>();
+builder.Services.AddHostedService<ExpiredFileCleanupService>();
 
 builder.Services.AddSingleton<IDynamoDBContext>(provider =>
 {
