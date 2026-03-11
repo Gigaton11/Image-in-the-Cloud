@@ -1,120 +1,126 @@
-# Cloud Image Uploader – AWS-Powered Demo
+# Cloud Image Uploader
 
-Image in the Cloud is a cloud-native image storage service built with ASP.NET Core.
-It allows authenticated users to upload, store, and manage images using scalable cloud infrastructure.
+Image in the Cloud is an ASP.NET Core MVC application for uploading, optimizing, sharing, and managing images with AWS-backed storage and metadata.
 
-This project was built as a learning/demo showcase of how a real-world serverless-ish image hosting service can be implemented on AWS without ever hard-coding credentials.
+It includes account-based access, image processing (original + web + thumbnail variants), time-based retention, and optional password reset email delivery via SES.
 
-## Features
+## Core Features
 
-- Upload JPG, PNG, and WebP images (max 10 MB)
-- Files are stored securely in an S3 bucket
-- Each upload generates a short-lived **pre-signed URL** (10-minute expiry)
-- All uploads and downloads are tracked in DynamoDB tables
-- Clean separation of concerns with dedicated service classes
-- Ready for **AWS Secrets Manager** integration (no keys in code or appsettings in production)
-- Local development works with regular AWS credentials in `appsettings.json`
+- Drag-and-drop upload with live progress feedback
+- Image processing pipeline (original, web-optimized WebP, thumbnail WebP)
+- Guest and authenticated upload modes
+- Retention controls:
+  - Guest: 10 minutes
+  - Signed-in: 10 minutes, 1 hour, 6 hours, 1 day
+- Visibility controls for signed-in users (public/private)
+- Personal image library page for signed-in users
+- Secure download and thumbnail endpoints with ownership checks
+- Background cleanup for expired files
+- Account registration, login, logout, forgot/reset password flow
 
 ## Tech Stack
 
-- ASP.NET Core 8 MVC (.NET 8)
-- Amazon S3 (via AWS SDK for .NET)
-- Amazon DynamoDB (via high-level `DynamoDBContext`)
-- AWS Secrets Manager (optional but implemented)
-- TransferUtility for efficient multipart uploads
+- .NET 10 (ASP.NET Core MVC)
+- AWS S3 (object storage)
+- AWS DynamoDB (metadata, users, reset tokens, download logs)
+- AWS SES v2 (optional password reset email delivery)
+- SixLabors ImageSharp (image processing)
+- Terraform (optional AWS infrastructure provisioning)
 
-## Project Structure
-Cloud_Image_Uploader/
-├── Controllers/
-│   └── HomeController.cs          # Upload/Download endpoints
-├── Services/
-│   ├── S3Service.cs               # S3 upload, download, presigned URLs
-│   ├── DynamoDbService.cs         # Tracks uploads & downloads
-│   └── AwsSecretsService.cs       # Retrieves secrets from Secrets Manager
-├── Models/
-│   ├── FileMetadata.cs            # DynamoDB table model
-│   └── DownloadRecord.cs
-├── Views/Home/Index.cshtml        # Simple upload form + result display
-├── Program.cs                     # DI & AWS service registration
-└── appsettings.json               # Local dev credentials (leave empty in prod)
+## Quick Start
 
-## Prerequisites
+### 1) Prerequisites
 
-- .NET 8 SDK
-- An AWS account
-- AWS CLI configured (or credentials in `~/.aws/credentials`)
-- S3 bucket (any name/region)
-- Two DynamoDB tables:
-  - `FileMetadata` (Partition key: `FileId` (string))
-  - `DownloadRecords` (Partition key: `FileId` (string))
+- .NET 10 SDK
+- AWS account with permissions for S3, DynamoDB, and optionally SES
+- Terraform (optional, only if provisioning infra from this repo)
 
-## Local Development Setup
+### 2) Restore dependencies
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/yourusername/Cloud-Image-Uploader.git
-   cd Cloud-Image-Uploader
+```bash
+dotnet restore
+```
 
+### 3) Configure secrets
 
+The project uses user-secrets in development. Set at least:
 
--Fill in your AWS details in appsettings.json
-{
-  "AWS": {
-    "AccessKey": "AKIAxxxxxxxxxxxxxxxx",
-    "SecretKey": "your-secret-key-here",
-    "Region": "us-east-1",
-    "BucketName": "your-unique-bucket-name"
-  }
-}
-    
+```bash
+dotnet user-secrets set "AWS:AccessKey" "<your-access-key>"
+dotnet user-secrets set "AWS:SecretKey" "<your-secret-key>"
+dotnet user-secrets set "AWS:Region" "eu-north-1"
+dotnet user-secrets set "AWS:BucketName" "<your-bucket-name>"
+dotnet user-secrets set "AWS:AutoCreateTables" "false"
+```
 
+Optional email settings:
 
+```bash
+dotnet user-secrets set "Email:EnableSesDelivery" "false"
+dotnet user-secrets set "Email:FromAddress" "verified-sender@example.com"
+dotnet user-secrets set "Email:FromName" "Cloud Image Uploader"
+dotnet user-secrets set "Email:ShowResetLinkInDevelopment" "true"
+```
 
+### 4) Run the app
 
--Create the DynamoDB tables (once)
-aws dynamodb create-table --table-name FileMetadata \
-  --attribute-definitions AttributeName=FileId,AttributeType=S \
-  --key-schema AttributeName=FileId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
+```bash
+dotnet run
+```
 
-aws dynamodb create-table --table-name DownloadRecords \
-  --attribute-definitions AttributeName=FileId,AttributeType=S \
-  --key-schema AttributeName=FileId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
+Then open the local URL printed by ASP.NET Core.
 
+## Main Routes
 
--Run the app
-    (Open https://localhost:5001 or http://localhost:5000)
+- `GET /` Upload page
+- `GET /my-images` Signed-in image library
+- `POST /` Upload image
+- `GET /download/{fileId}` Download image
+- `GET /thumbnail/{fileId}` Fetch thumbnail
+- `POST /delete/{fileId}` Delete image
+- `POST /visibility/{fileId}` Change image visibility
+- `GET /Account/Login`
+- `GET /Account/Register`
+- `GET /Account/ForgotPassword`
+- `GET /Account/ResetPassword`
 
--Upload an image → you’ll get a temporary signed URL (valid 10 min) and see it displayed.
+## Terraform (Optional)
 
+Terraform files live in `infra/terraform` and provision:
 
+- S3 bucket
+- DynamoDB tables
+- IAM user + policy + access key
+- Optional SES sender identity
 
+Typical workflow:
 
+```bash
+cd infra/terraform
+terraform init
+terraform plan -var-file="terraform.tfvars"
+terraform apply -var-file="terraform.tfvars"
+```
 
-Production-Ready Improvements (Already Partially Implemented)
+Start from `terraform.tfvars.example` and create your own `terraform.tfvars` (which should not be committed).
 
-Replace hard-coded credentials with AWS Secrets Manager (see AwsSecretsService.cs)
-Use IAM Roles (EC2/ECS/EKS/Lambda) instead of access keys
-Add authentication (currently tracks "anonymous" or claims-based user)
-Serve images via CloudFront + S3 for global low-latency delivery
-Add rate limiting, virus scanning, image processing (Sharp/Lambda), etc.
+## Repository Hygiene
 
-Using Secrets Manager (Production)
+A root `.gitignore` has been added to exclude generated and sensitive artifacts, including:
 
-Store your credentials as a JSON secret:
-{"AccessKey":"AKIA...","SecretKey":"...","BucketName":"my-bucket","Region":"us-east-1"}
+- .NET build outputs and local caches (`bin`, `obj`, `.nuget`, `.dotnet`)
+- Terraform local working directory and state files (`.terraform`, `*.tfstate`, `*.tfvars`)
+- IDE-specific files (`.vs`, `.vscode`, `.idea`, `*.user`)
 
+## Security Notes
 
-2.Update S3Service constructor to read from AwsSecretsService instead of IConfiguration.(The service class is already written – just wire it up!)
+- Never commit AWS credentials, Terraform state, or local tfvars files.
+- If credentials are ever exposed, rotate them immediately.
+- Use least-privilege IAM policies in production.
+- Keep `Email:ShowResetLinkInDevelopment` disabled outside development.
 
+## Development Notes
 
-Endpoints
-
-Method      Route                    Description
-GET         /                        Upload form
-POST        /Home/Upload             Upload image → returns presigned URL
-GET         /download/{fileId}       Download file (tracks download in DynamoDB)
-GET         /ping                    "Health check (""Server is running"")"
-
-
+- App logs are emitted with UTC timestamps for easier expiry debugging.
+- `AWS:AutoCreateTables` can be enabled to create required DynamoDB tables at startup.
+- Expired file cleanup runs in the background and also has per-file scheduled deletion as a fast path.
