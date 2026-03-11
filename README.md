@@ -1,6 +1,7 @@
 # Cloud Image Uploader – AWS-Powered Demo
 
-A simple, full-stack ASP.NET Core MVC web application that demonstrates secure image uploading to **Amazon S3**, metadata & download tracking with **Amazon DynamoDB**, and best-practice credential handling using **AWS Secrets Manager** (ready for production).
+Image in the Cloud is a cloud-native image storage service built with ASP.NET Core.
+It allows authenticated users to upload, store, and manage images using scalable cloud infrastructure.
 
 This project was built as a learning/demo showcase of how a real-world serverless-ish image hosting service can be implemented on AWS without ever hard-coding credentials.
 
