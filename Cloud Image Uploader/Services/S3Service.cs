@@ -93,6 +93,93 @@ public class S3Service
     }
 
     //
+    // Uploads image variants to S3.
+    // Stores original, web format and thumbnail with naming convention:
+    // {fileId}_original.<ext>, {fileId}_web.webp and {fileId}_thumb.webp
+    // Returns the base file ID for tracking in metadata.
+    //
+    public async Task<string> UploadProcessedImagesAsync(IFormFile originalFile, ImageProcessingService.ProcessedImageResult processedImages)
+    {
+        ValidateUpload(originalFile);
+        
+        // Generate unique base file ID (without extension, will add _web.webp or _thumb.webp)
+        var fileId = Guid.NewGuid().ToString();
+
+        var originalFileName = BuildOriginalFileKey(fileId, originalFile.FileName);
+        var webFileName = $"{fileId}_web.webp";
+        var thumbnailFileName = $"{fileId}_thumb.webp";
+
+        _logger.LogInformation("Uploading image variants: FileId={FileId}, Original={Original}, OriginalFile={OriginalFile}, WebFile={WebFile}, ThumbFile={ThumbFile}",
+            fileId, originalFile.FileName, originalFileName, webFileName, thumbnailFileName);
+
+        try
+        {
+            // Upload original version for lossless/format-preserving downloads
+            using var originalStream = originalFile.OpenReadStream();
+            var originalUploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = originalStream,
+                Key = originalFileName,
+                BucketName = _bucketName,
+                ContentType = originalFile.ContentType
+            };
+            await _transferUtility.UploadAsync(originalUploadRequest);
+            _logger.LogInformation("Original image uploaded: {FileKey}, Size={SizeKB}KB",
+                originalFileName, originalFile.Length / 1024.0);
+
+            // Upload web-optimized version
+            if (processedImages.WebFormatImage.CanSeek)
+            {
+                processedImages.WebFormatImage.Position = 0;
+            }
+            var webUploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = processedImages.WebFormatImage,
+                Key = webFileName,
+                BucketName = _bucketName,
+                ContentType = "image/webp"
+            };
+            await _transferUtility.UploadAsync(webUploadRequest);
+            _logger.LogInformation("Web-optimized image uploaded: {FileKey}, Size={SizeKB}KB", 
+                webFileName, processedImages.WebFormatSizeBytes / 1024.0);
+
+            // Upload thumbnail version
+            if (processedImages.ThumbnailImage.CanSeek)
+            {
+                processedImages.ThumbnailImage.Position = 0;
+            }
+            var thumbUploadRequest = new TransferUtilityUploadRequest
+            {
+                InputStream = processedImages.ThumbnailImage,
+                Key = thumbnailFileName,
+                BucketName = _bucketName,
+                ContentType = "image/webp"
+            };
+            await _transferUtility.UploadAsync(thumbUploadRequest);
+            _logger.LogInformation("Thumbnail image uploaded: {FileKey}, Size={SizeKB}KB",
+                thumbnailFileName, processedImages.ThumbnailSizeBytes / 1024.0);
+
+            _logger.LogInformation("All processed images uploaded successfully: {FileId}", fileId);
+            return fileId;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Processed image upload failed for: {FileId}", fileId);
+            throw;
+        }
+    }
+
+    //
+    // Builds the S3 object key for the original uploaded file.
+    // Example: {fileId}_original.png
+    //
+    public static string BuildOriginalFileKey(string fileId, string originalFileName)
+    {
+        var extension = Path.GetExtension(originalFileName).ToLowerInvariant();
+        return $"{fileId}_original{extension}";
+    }
+
+    //
     // Retrieves a file from S3 as a stream for downloading.
     // Called by the Download endpoint to serve files to users.
     //

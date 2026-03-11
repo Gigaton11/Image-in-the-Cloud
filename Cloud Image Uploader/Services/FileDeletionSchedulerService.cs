@@ -59,14 +59,40 @@ public class FileDeletionSchedulerService
         using var scope = _scopeFactory.CreateScope();
         var s3Service = scope.ServiceProvider.GetRequiredService<S3Service>();
         var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
+        var metadata = await dynamoDbService.GetFileMetadataAsync(fileId);
 
         try
         {
-            await s3Service.DeleteFileAsync(fileId);
+            // Delete the processed web-optimized version
+            await s3Service.DeleteFileAsync($"{fileId}_web.webp");
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            _logger.LogInformation("File already deleted in S3: {FileId}", fileId);
+            _logger.LogInformation("Web-optimized image already deleted in S3: {FileId}", fileId);
+        }
+
+        try
+        {
+            // Delete the processed thumbnail version
+            await s3Service.DeleteFileAsync($"{fileId}_thumb.webp");
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _logger.LogInformation("Thumbnail image already deleted in S3: {FileId}", fileId);
+        }
+
+        if (metadata != null)
+        {
+            try
+            {
+                // Delete the original uploaded version
+                var originalFileKey = S3Service.BuildOriginalFileKey(fileId, metadata.FileName);
+                await s3Service.DeleteFileAsync(originalFileKey);
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogInformation("Original image already deleted in S3: {FileId}", fileId);
+            }
         }
 
         await dynamoDbService.RemoveFileMetadataAsync(fileId);

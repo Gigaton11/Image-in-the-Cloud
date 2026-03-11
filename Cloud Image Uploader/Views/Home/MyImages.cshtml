@@ -1,0 +1,85 @@
+@model IReadOnlyList<Cloud_Image_Uploader.Models.OwnedImageViewModel>
+
+@{
+    ViewData["Title"] = "Uploaded Images";
+}
+
+<section class="page-hero page-hero-compact">
+    <div>
+        <span class="section-eyebrow section-eyebrow-main account-library-title">Account library</span>
+        <p>Review active uploads, copy links, toggle visibility, and remove files from one place.</p>
+    </div>
+    <div class="page-summary-card">
+        <strong>@Model.Count</strong>
+        <span>active uploads</span>
+    </div>
+</section>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert-with-icon alert-success">
+        <span class="alert-icon">✅</span>
+        <div><strong>@TempData["Success"]</strong></div>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert-with-icon alert-danger">
+        <span class="alert-icon">❌</span>
+        <div><strong>@TempData["Error"]</strong></div>
+    </div>
+}
+
+@if (Model.Count == 0)
+{
+    <div class="gallery-empty-state">
+        <h2>No active images</h2>
+        <p>Upload a file while signed in, then choose the 1 day retention option if you want it to stay available longer.</p>
+        <a asp-controller="Home" asp-action="Index" class="btn btn-primary">Upload an Image</a>
+    </div>
+}
+else
+{
+    <div class="image-gallery-grid">
+        @foreach (var image in Model)
+        {
+            <article class="image-gallery-card">
+                <a href="@image.DownloadUrl" class="image-gallery-thumb-link" target="_blank">
+                    <img class="image-gallery-thumb" src="@image.ThumbnailUrl" alt="Thumbnail for @image.FileName" />
+                </a>
+
+                <div class="image-gallery-body">
+                    <h3 title="@image.FileName">@image.FileName</h3>
+                    <p><span class="visibility-pill @(image.IsPublic ? "visibility-public" : "visibility-private")">@image.VisibilityLabel</span></p>
+                    <p>Size: @image.FileSizeText</p>
+                    <p>Uploaded: @image.UploadedAtText</p>
+                    <p>Expires: @image.ExpiresAtText</p>
+                    <p>Time left: @image.ExpiresInText</p>
+
+                    <div class="button-group image-gallery-actions">
+                        <button class="btn-action btn-copy" type="button" data-url="@image.ShareUrl" onclick="copyShareLink(event)">
+                            <i class="bi bi-link-45deg"></i>
+                            <span>Copy Link</span>
+                        </button>
+                        <a href="@image.DownloadUrl" class="btn-action btn-download" target="_blank">
+                            <i class="bi bi-download"></i>
+                            <span>Download</span>
+                        </a>
+                        <button class="btn-action btn-delete" type="button" onclick="deleteFile(event, '@image.FileId')">
+                            <i class="bi bi-trash3"></i>
+                            <span>Delete</span>
+                        </button>
+                    </div>
+
+                    <form method="post" action="/visibility/@image.FileId" class="visibility-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="visibilityOption" value="@image.ToggleVisibilityOption" />
+                        <input type="hidden" name="returnUrl" value="/my-images" />
+                        <button type="submit" class="btn-action btn-visibility">@image.ToggleVisibilityText</button>
+                    </form>
+                </div>
+            </article>
+        }
+    </div>
+}

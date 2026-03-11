@@ -1,0 +1,18 @@
+aws_region       = "eu-north-1"
+environment      = "dev"
+project_name     = "cloud-image-uploader"
+bucket_name      = "replace-with-globally-unique-bucket-name"
+app_iam_user_name = "cloud-image-uploader-app-dev"
+enable_ses       = false
+
+# Required only when enable_ses = true.
+# ses_sender_email = "verified-sender@example.com"
+
+# Set true only in ephemeral environments.
+force_destroy_bucket = false
+
+enable_point_in_time_recovery = true
+
+tags = {
+  Owner = "your-team"
+}

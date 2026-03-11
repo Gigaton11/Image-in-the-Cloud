@@ -1,12 +1,11 @@
 namespace Cloud_Image_Uploader.Services;
 
 //
-// Background worker that deletes files from S3 after 10 minutes and
-// removes their metadata from DynamoDB.
+// Background worker that deletes files from S3 after their individual expiry time
+// and removes their metadata from DynamoDB.
 //
 public class ExpiredFileCleanupService : BackgroundService
 {
-    private static readonly TimeSpan ExpirationWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(1);
 
     private readonly IServiceScopeFactory _scopeFactory;
@@ -60,7 +59,7 @@ public class ExpiredFileCleanupService : BackgroundService
         var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
 
         // Safety net in case per-file scheduled task was missed.
-        var expiredFileIds = await dynamoDbService.GetExpiredFileIdsAsync(ExpirationWindow);
+        var expiredFileIds = await dynamoDbService.GetExpiredFileIdsAsync();
         if (expiredFileIds.Count == 0)
         {
             return;
@@ -104,9 +103,7 @@ public class ExpiredFileCleanupService : BackgroundService
                 break;
             }
 
-            // UploadTime from DynamoDB can be unspecified kind; normalize before comparisons.
-            var uploadTimeUtc = DynamoDbService.NormalizeUtc(file.UploadTime);
-            var expiresAtUtc = uploadTimeUtc.Add(ExpirationWindow);
+            var expiresAtUtc = DynamoDbService.GetExpirationUtc(file);
             if (expiresAtUtc <= nowUtc)
             {
                 try

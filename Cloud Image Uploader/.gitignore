@@ -1,0 +1,45 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+out/
+publish/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+
+# IDE / tooling
+.vs/
+.vscode/
+.idea/
+
+# Local package and SDK caches
+.nuget/
+.dotnet/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Terraform local state and providers
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.tfvars
+
+# Keep example Terraform variables checked in
+!*.tfvars.example

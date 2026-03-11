@@ -1,0 +1,52 @@
+@model Cloud_Image_Uploader.Models.LoginViewModel
+
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="auth-card">
+    <h1 class="auth-title-standard">Login</h1>
+    <p class="auth-subtitle">Sign in with your username or email to keep uploads for up to 1 day and manage your image library.</p>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success" role="alert">@TempData["Success"]</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger" role="alert">@TempData["Error"]</div>
+    }
+
+    <form asp-action="Login" method="post" class="auth-form">
+        <input asp-for="ReturnUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="mb-3">
+            <label asp-for="Identifier" class="form-label"></label>
+            <input asp-for="Identifier" class="form-control" autocomplete="username" placeholder="yourname or you@example.com" />
+            <span asp-validation-for="Identifier" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+
+        <div class="form-check mb-3">
+            <input asp-for="RememberMe" class="form-check-input" />
+            <label asp-for="RememberMe" class="form-check-label"></label>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+
+    <p class="auth-switch"><a asp-action="ForgotPassword">Forgot password?</a></p>
+
+    <p class="auth-switch">Need an account? <a asp-action="Register" asp-route-returnUrl="@Model.ReturnUrl">Create one</a>.</p>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
