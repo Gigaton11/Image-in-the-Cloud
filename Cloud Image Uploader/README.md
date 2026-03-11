@@ -1,6 +1,6 @@
 # Cloud Image Uploader
 
-Cloud Image Uploader is an ASP.NET Core MVC application for uploading, optimizing, sharing, and managing images with AWS-backed storage and metadata.
+Image in the Cloud is an ASP.NET Core MVC application for uploading, optimizing, sharing, and managing images with AWS-backed storage and metadata.
 
 It includes account-based access, image processing (original + web + thumbnail variants), time-based retention, and optional password reset email delivery via SES.
 
