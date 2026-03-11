@@ -135,6 +135,15 @@ function initializeUploadExperience() {
 		}
 
 		// XHR is used instead of fetch because it exposes granular upload progress events.
+		const request = new XMLHttpRequest();
+		const formData = new FormData(uploadForm);
+
+		setUploadBusyState(true);
+		updateUploadProgress(4, 'Starting upload...', false);
+
+		request.open(uploadForm.method || 'POST', uploadForm.action || window.location.pathname, true);
+
+		request.upload.addEventListener('progress', (progressEvent) => {
 			if (!progressEvent.lengthComputable) {
 				updateUploadProgress(55, 'Uploading image...', false);
 				return;
