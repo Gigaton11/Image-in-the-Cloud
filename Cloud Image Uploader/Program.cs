@@ -93,14 +93,22 @@ if (autoCreateTables)
 }
 
 // Configure the HTTP request pipeline.
+var useHttps = app.Configuration.GetValue<bool>("UseHttps", defaultValue: true);
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days.
-    app.UseHsts();
+    if (useHttps)
+    {
+        // The default HSTS value is 30 days.
+        app.UseHsts();
+    }
 }
 
-app.UseHttpsRedirection();
+if (useHttps)
+{
+    app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
