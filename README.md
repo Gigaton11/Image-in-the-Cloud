@@ -1,8 +1,6 @@
 # Image in the Cloud
 
-## 🔴 Live Demo
-
-### [Image in the Cloud](https://9q4mjgxsfd.eu-west-1.awsapprunner.com/) (link)
+## [🔴 Live Demo](https://9q4mjgxsfd.eu-west-1.awsapprunner.com/) 
 
 | Field          | Value            |
 |----------------|------------------|
