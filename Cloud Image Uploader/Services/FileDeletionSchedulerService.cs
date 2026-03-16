@@ -5,8 +5,8 @@ using System.Net;
 namespace Cloud_Image_Uploader.Services;
 
 //
-// Schedules per-file deletion to run 10 minutes after upload.
-// This avoids relying only on periodic scans for expiration cleanup.
+// Schedules per-file deletion timers so each file is removed as soon as it expires.
+// Complements ExpiredFileCleanupService, which is a periodic safety-net scan.
 //
 public class FileDeletionSchedulerService
 {
@@ -22,6 +22,8 @@ public class FileDeletionSchedulerService
         _logger = logger;
     }
 
+    // Registers a one-shot background timer for fileId that fires after delay.
+    // Idempotent: a second call for the same fileId before the timer fires is a no-op.
     public void ScheduleDelete(string fileId, TimeSpan delay)
     {
         // Prevent duplicate timers for the same file key.
@@ -53,6 +55,8 @@ public class FileDeletionSchedulerService
         });
     }
 
+    // Deletes all S3 variants (web, thumbnail, original) and removes the DynamoDB metadata
+    // record for fileId. Called both by scheduled timers and on-demand (e.g. user delete, expiry check).
     public async Task DeleteFileAndMetadataAsync(string fileId)
     {
         // Resolve scoped services here so this method is safe from background tasks.

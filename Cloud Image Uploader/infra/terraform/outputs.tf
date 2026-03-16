@@ -3,6 +3,11 @@ output "aws_region" {
   value       = var.aws_region
 }
 
+output "app_runner_region" {
+  description = "AWS region used for App Runner and ECR resources"
+  value       = trimspace(var.app_runner_region) != "" ? trimspace(var.app_runner_region) : var.aws_region
+}
+
 output "bucket_name" {
   description = "S3 bucket used by the uploader"
   value       = aws_s3_bucket.uploads.bucket
@@ -31,6 +36,26 @@ output "password_reset_tokens_table_name" {
 output "ses_sender_email" {
   description = "SES sender identity used for password reset emails"
   value       = var.enable_ses ? aws_sesv2_email_identity.reset_sender[0].email_identity : null
+}
+
+output "app_runner_ecr_repository_url" {
+  description = "ECR repository URL used for App Runner container images"
+  value       = var.enable_app_runner ? aws_ecr_repository.app_runner[0].repository_url : null
+}
+
+output "app_runner_service_arn" {
+  description = "ARN of the App Runner service"
+  value       = length(aws_apprunner_service.webapp) > 0 ? aws_apprunner_service.webapp[0].arn : null
+}
+
+output "app_runner_service_url" {
+  description = "Public URL of the App Runner service"
+  value       = length(aws_apprunner_service.webapp) > 0 ? aws_apprunner_service.webapp[0].service_url : null
+}
+
+output "app_runner_instance_role_arn" {
+  description = "IAM role assumed by the App Runner runtime"
+  value       = var.enable_app_runner ? aws_iam_role.apprunner_instance[0].arn : null
 }
 
 output "app_access_key_id" {

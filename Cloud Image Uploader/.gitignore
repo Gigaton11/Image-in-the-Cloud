@@ -3,6 +3,7 @@
 [Oo]bj/
 out/
 publish/
+artifacts/
 
 # User-specific files
 *.user
@@ -22,6 +23,11 @@ publish/
 *.log
 *.tmp
 *.temp
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
 
 # OS files
 .DS_Store

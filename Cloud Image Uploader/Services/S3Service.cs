@@ -5,8 +5,7 @@ using Amazon.S3.Transfer;
 namespace Cloud_Image_Uploader.Services;
 
 //
-// Service for handling AWS S3 operations including file upload, download, and deletion.
-// Manages AWS S3 bucket interactions and generates secure pre-signed URLs for temporary access.
+// Service for all AWS S3 operations: uploading image variants, downloading, and deleting files.
 //
 public class S3Service
 {
@@ -53,43 +52,6 @@ public class S3Service
         _s3Client = s3Client;
         _transferUtility = new TransferUtility(_s3Client);
         _logger.LogInformation("S3Service initialized with bucket: {BucketName}", _bucketName);
-    }
-
-    //
-    // Uploads a file to S3 bucket after validation.
-    // Uses a GUID to generate a unique filename, preventing collisions.
-    // Returns only the file key (not the full signed URL) for security.
-    //
-
-    public async Task<string> UploadFileAsync(IFormFile file)
-    {
-        ValidateUpload(file);
-        // Generate unique filename: [GUID].[extension]
-        var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-
-        _logger.LogInformation("Starting file upload: OriginalName={OriginalName}, Size={FileSizeKB}KB, GeneratedName={GeneratedName}", 
-            file.FileName, file.Length / 1024.0, fileName);
-
-        using var stream = file.OpenReadStream();
-        var uploadRequest = new TransferUtilityUploadRequest
-        {
-            InputStream = stream,
-            Key = fileName,
-            BucketName = _bucketName,
-            ContentType = file.ContentType
-        };
-
-        try
-        {
-            await _transferUtility.UploadAsync(uploadRequest);
-            _logger.LogInformation("File uploaded successfully: {FileKey}", fileName);
-            return fileName;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "File upload failed for: {FileKey}", fileName);
-            throw;
-        }
     }
 
     //
@@ -206,9 +168,9 @@ public class S3Service
         }
     }
 
-    // TODO: Implement file deletion method for cleanup of expired or unwanted files.
-    // Deletes a file from the S3 bucket.
-    // Can be used to remove expired or unwanted files.
+    //
+    // Deletes a file from the S3 bucket by key.
+    // Also hard-deletes any object versions/delete markers when bucket versioning is enabled.
     //
     public async Task DeleteFileAsync(string key)
     {
@@ -314,39 +276,4 @@ public class S3Service
         }
     }
 
-    //
-    // Generates a temporary, signed URL for accessing a file in S3.
-    // The URL expires in 10 minutes and includes AWS authentication credentials.
-    // This is called server-side only and returned to the browser via redirect.
-    //
-    public string GetPreSignedUrl(string key)
-    {
-        var request = new GetPreSignedUrlRequest
-        {
-            BucketName = _bucketName,
-            Key = key,
-            Expires = DateTime.UtcNow.AddMinutes(10),
-        };
-
-        return _s3Client.GetPreSignedURL(request);
-    }
-
-    //
-    // Masks/obscures a signed URL to hide AWS credentials and sensitive query parameters.
-    // Extracts only the filename for display purposes.
-    // Example: https://bucket.s3.../abc-123.png?X-Amz-Credential=... → abc-123.png
-    //
-    public static string MaskUrl(string url)
-    {
-        if (string.IsNullOrEmpty(url))
-            return url;
-
-        // Split on '?' to remove query parameters containing credentials
-        var baseUrl = url.Split('?')[0];
-        
-        // Extract filename from path
-        var fileName = Path.GetFileName(baseUrl);
-        
-        return fileName;
-    }
 }

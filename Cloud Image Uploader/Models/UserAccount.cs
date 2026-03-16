@@ -2,6 +2,9 @@ using Amazon.DynamoDBv2.DataModel;
 
 namespace Cloud_Image_Uploader.Models;
 
+// DynamoDB record for a registered user.
+// UserId is the normalised (upper-cased) username and acts as the table hash key,
+// enabling O(1) username lookups without a secondary index.
 [DynamoDBTable("UserAccounts")]
 public class UserAccount
 {

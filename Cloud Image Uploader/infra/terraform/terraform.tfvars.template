@@ -1,0 +1,61 @@
+# Ready-to-fill template for App Runner demo deployment.
+# Usage:
+# 1) Copy this file to infra/terraform/terraform.tfvars
+# 2) Replace all REPLACE_ME values
+# 3) First apply with deploy_app_runner_service = false
+# 4) Push Docker image to ECR
+# 5) Set deploy_app_runner_service = true and apply again
+
+aws_region   = "eu-north-1"
+# App Runner is not available in eu-north-1. Deploy App Runner + ECR in eu-west-1.
+app_runner_region = "eu-west-1"
+environment  = "demo"
+project_name = "cloud-image-uploader"
+
+# Must be globally unique across all AWS accounts.
+bucket_name = "tasos-image-uploader-dev"
+
+# Legacy IAM user used by local/non-role-based setups.
+app_iam_user_name = "cloud-image-uploader-app-demo"
+
+# App Runner and image settings.
+enable_app_runner                 = true
+deploy_app_runner_service         = false
+app_runner_service_name           = "cloud-image-uploader-demo"
+app_runner_ecr_repository_name    = "cloud-image-uploader-demo"
+app_runner_image_tag              = "latest"
+app_runner_auto_deployments_enabled = false
+app_runner_cpu                    = "1024"
+app_runner_memory                 = "2048"
+app_runner_health_check_path      = "/"
+
+# Optional: set full image URI explicitly instead of repository_url + tag.
+# app_runner_image_identifier = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/cloud-image-uploader-demo:latest"
+
+# Email / SES (optional)
+enable_ses       = false
+# ses_sender_email = "verified@your-domain.com"
+ses_sender_name  = "Cloud Image Uploader"
+
+# Infra behavior
+force_destroy_bucket         = false
+enable_point_in_time_recovery = true
+
+# Keep table names aligned with model attributes unless you also change code.
+file_metadata_table_name         = "FileMetadata"
+download_records_table_name      = "DownloadRecords"
+user_accounts_table_name         = "UserAccounts"
+password_reset_tokens_table_name = "PasswordResetTokens"
+
+# Optional runtime overrides passed to App Runner.
+app_runner_environment_variables = {
+  # "Email__ShowResetLinkInDevelopment" = "false"
+  # "Email__FromAddress" = "verified@your-domain.com"
+  # "Email__FromName" = "Cloud Image Uploader"
+}
+
+tags = {
+  Owner       = "REPLACE_ME_TEAM_OR_NAME"
+  Environment = "demo"
+  Purpose     = "live-demo"
+}

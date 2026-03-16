@@ -2,6 +2,9 @@ using Amazon.DynamoDBv2.DataModel;
 
 namespace Cloud_Image_Uploader.Models;
 
+// Single-use, time-limited token record for the password-reset flow.
+// The token URL has the form "{TokenId}.{secret}"; only the SHA-256 hash
+// of secret is persisted so a database read cannot be used to replay the token.
 [DynamoDBTable("PasswordResetTokens")]
 public class PasswordResetToken
 {

@@ -1,6 +1,24 @@
 bin/
 obj/
+artifacts/
+
+# Infrastructure files have no place in the container image
+infra/
+
+# Git history
+.git/
+
+# Documentation
+README.md
+
+# Local secrets and environment overrides
 .env
+.env.*
+!.env.example
+
+# IDE/tooling
 *.user
 *.suo
 .vs/
+.vscode/
+.idea/

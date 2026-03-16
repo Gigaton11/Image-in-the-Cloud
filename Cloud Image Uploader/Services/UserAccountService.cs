@@ -6,6 +6,10 @@ using System.Text;
 
 namespace Cloud_Image_Uploader.Services;
 
+//
+// Handles user registration, authentication, and password-reset token lifecycle.
+// Accounts are stored in the DynamoDB UserAccounts table keyed by normalised username.
+//
 public class UserAccountService
 {
     private static readonly PasswordHasher<UserAccount> PasswordHasher = new();
@@ -20,6 +24,8 @@ public class UserAccountService
         _logger = logger;
     }
 
+    // Creates a new user account after checking that the username and email are not already taken.
+    // Returns the new UserAccount on success, or an error message on conflict.
     public async Task<(bool Success, string? ErrorMessage, UserAccount? User)> RegisterAsync(string userName, string email, string password)
     {
         var trimmedUserName = userName.Trim();
@@ -56,6 +62,8 @@ public class UserAccountService
         return (true, null, user);
     }
 
+    // Looks up the user by username or email and verifies the password hash.
+    // Returns null if the user is not found or the password does not match.
     public async Task<UserAccount?> AuthenticateAsync(string identifier, string password)
     {
         var user = await FindByIdentifierAsync(identifier);
@@ -75,6 +83,9 @@ public class UserAccountService
         return user;
     }
 
+    // Generates a signed password-reset token of the form "{tokenId}.{secret}" and persists
+    // a record that stores only the SHA-256 hash of the secret to prevent database-read replay attacks.
+    // Returns null values when the identifier does not match any account (without leaking that fact).
     public async Task<(string? Token, string? RecipientEmail)> CreatePasswordResetTokenAsync(string identifier)
     {
         var user = await FindByIdentifierAsync(identifier);
@@ -109,6 +120,8 @@ public class UserAccountService
         return ($"{tokenId}.{secret}", user.Email);
     }
 
+    // Validates the token format, verifies the secret hash, checks expiry and single-use,
+    // then updates the account password and marks the token as used.
     public async Task<(bool Success, string Message)> ResetPasswordAsync(string token, string newPassword)
     {
         if (string.IsNullOrWhiteSpace(token) || !token.Contains('.'))
@@ -162,6 +175,8 @@ public class UserAccountService
         return (true, "Password has been reset successfully.");
     }
 
+    // Username and email are stored case-insensitively to prevent duplicate accounts
+    // that differ only in casing (e.g. "Alice" vs "alice").
     private static string NormalizeUserName(string userName)
     {
         return userName.Trim().ToUpperInvariant();
@@ -172,6 +187,9 @@ public class UserAccountService
         return email.Trim().ToUpperInvariant();
     }
 
+    // Attempts a direct DynamoDB key lookup by username first, then falls back to a
+    // full table scan filtered by email. The scan can be replaced with a GSI lookup
+    // once an email index is added to the UserAccounts table.
     private async Task<UserAccount?> FindByIdentifierAsync(string identifier)
     {
         var trimmed = identifier.Trim();
@@ -192,6 +210,7 @@ public class UserAccountService
         return users.FirstOrDefault(x => string.Equals(NormalizeEmail(x.Email), normalizedEmail, StringComparison.Ordinal));
     }
 
+    // Returns the uppercase hex-encoded SHA-256 digest of a UTF-8 string.
     private static string ComputeSha256(string value)
     {
         var bytes = Encoding.UTF8.GetBytes(value);

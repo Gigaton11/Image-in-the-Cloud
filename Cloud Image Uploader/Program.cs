@@ -1,13 +1,14 @@
 using Amazon;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
+using Amazon.Extensions.NETCore.Setup;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.SimpleEmailV2;
-//using Amazon.SecretsManager;
 using Cloud_Image_Uploader.Models;
 using Cloud_Image_Uploader.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 // Force UTC timestamps in logs so expiration/debug timings match server-side checks.
@@ -37,6 +38,18 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+var useForwardedHeaders = builder.Configuration.GetValue<bool>("UseForwardedHeaders", false);
+
+if (useForwardedHeaders)
+{
+    // Trust forwarded headers only when explicitly enabled by environment config.
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
 
 // Configure AWS credentials from configuration (includes user secrets)
 var awsAccessKey = builder.Configuration["AWS:AccessKey"];
@@ -44,23 +57,23 @@ var awsSecretKey = builder.Configuration["AWS:SecretKey"];
 var awsRegion = builder.Configuration["AWS:Region"] ?? "eu-north-1";
 var autoCreateTables = builder.Configuration.GetValue<bool>("AWS:AutoCreateTables");
 
-if (string.IsNullOrEmpty(awsAccessKey) || string.IsNullOrEmpty(awsSecretKey))
+if (string.IsNullOrWhiteSpace(awsAccessKey) ^ string.IsNullOrWhiteSpace(awsSecretKey))
 {
-    throw new InvalidOperationException("AWS credentials (AWS:AccessKey and AWS:SecretKey) are not configured. Please set them using 'dotnet user-secrets set'.");
+    throw new InvalidOperationException("AWS:AccessKey and AWS:SecretKey must be set together when using static credentials.");
 }
 
-var awsCredentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
-var awsRegionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
+var awsOptions = builder.Configuration.GetAWSOptions();
+awsOptions.Region = RegionEndpoint.GetBySystemName(awsRegion);
 
-builder.Services.AddSingleton<AWSCredentials>(awsCredentials);
-builder.Services.AddSingleton<IAmazonS3>(provider => 
-    new AmazonS3Client(awsCredentials, new AmazonS3Config { RegionEndpoint = awsRegionEndpoint }));
-builder.Services.AddSingleton<IAmazonDynamoDB>(provider =>
-    new AmazonDynamoDBClient(awsCredentials, new AmazonDynamoDBConfig { RegionEndpoint = awsRegionEndpoint }));
-builder.Services.AddSingleton<IAmazonSimpleEmailServiceV2>(provider =>
-    new AmazonSimpleEmailServiceV2Client(awsCredentials, new AmazonSimpleEmailServiceV2Config { RegionEndpoint = awsRegionEndpoint }));
-//builder.Services.AddAWSService<IAmazonSecretsManager>();
-//builder.Services.AddScoped<AwsSecretsService>();
+if (!string.IsNullOrWhiteSpace(awsAccessKey) && !string.IsNullOrWhiteSpace(awsSecretKey))
+{
+    awsOptions.Credentials = new BasicAWSCredentials(awsAccessKey, awsSecretKey);
+}
+
+builder.Services.AddDefaultAWSOptions(awsOptions);
+builder.Services.AddAWSService<IAmazonS3>();
+builder.Services.AddAWSService<IAmazonDynamoDB>();
+builder.Services.AddAWSService<IAmazonSimpleEmailServiceV2>();
 
 // Application services.
 builder.Services.AddSingleton<S3Service>();
@@ -103,6 +116,11 @@ if (!app.Environment.IsDevelopment())
         // The default HSTS value is 30 days.
         app.UseHsts();
     }
+}
+
+if (useForwardedHeaders)
+{
+    app.UseForwardedHeaders();
 }
 
 if (useHttps)

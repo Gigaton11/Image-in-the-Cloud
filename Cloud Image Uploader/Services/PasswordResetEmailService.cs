@@ -6,6 +6,11 @@ using Microsoft.Extensions.Options;
 
 namespace Cloud_Image_Uploader.Services;
 
+//
+// Sends password-reset emails via Amazon SES v2.
+// When SES delivery is disabled or the from-address is unconfigured, the service
+// can fall back to surfacing the reset link directly in the UI (development only).
+//
 public class PasswordResetEmailService
 {
     private readonly IAmazonSimpleEmailServiceV2 _sesClient;
@@ -25,6 +30,9 @@ public class PasswordResetEmailService
         _logger = logger;
     }
 
+    // Sends a password-reset email to recipientEmail containing the resetUrl link.
+    // Returns DevelopmentResetLink when the fallback preview is active so controllers
+    // can display it in the UI instead of relying on email delivery.
     public async Task<(bool Success, string? ErrorMessage, string? DevelopmentResetLink)> SendPasswordResetAsync(string recipientEmail, string resetUrl)
     {
         if (string.IsNullOrWhiteSpace(recipientEmail))
@@ -117,6 +125,8 @@ public class PasswordResetEmailService
         }
     }
 
+    // Decides whether to expose the reset link in the UI response rather than requiring
+    // a delivered email. Controlled by Email:ShowResetLinkInDevelopment config.
     private (bool Success, string? ErrorMessage, string? DevelopmentResetLink) ResolveFallback(
         string errorMessage,
         string resetUrl,
@@ -133,6 +143,7 @@ public class PasswordResetEmailService
         return (false, errorMessage, null);
     }
 
+    // Guards against placeholder "example.com" addresses that look configured but aren't.
     private static bool HasConfiguredFromAddress(string? fromAddress)
     {
         if (string.IsNullOrWhiteSpace(fromAddress))

@@ -7,8 +7,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Cloud_Image_Uploader.Controllers;
 
+//
+// Primary controller: handles image uploads, downloads, thumbnail serving,
+// user-initiated deletion, and visibility toggling.
+// Guest uploads are always public and use the shortest retention window;
+// authenticated uploads support configurable retention and private/public visibility.
+//
 public class HomeController : Controller
 {
+    // Accepted image file extensions — validated at the controller boundary before
+    // the file is passed to S3Service (which re-validates as defense-in-depth).
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
@@ -17,7 +25,9 @@ public class HomeController : Controller
         ".webp"
     };
 
-    private const long MaxUploadBytes = 10 * 1024 * 1024;
+    private const long MaxUploadBytes = 10 * 1024 * 1024; // 10 MB hard limit enforced before processing
+
+    // String constants for the retention and visibility form values sent from the UI.
     private const string DefaultRetentionOption = "10m";
     private const string OneHourRetentionOption = "1h";
     private const string SixHourRetentionOption = "6h";
@@ -48,7 +58,6 @@ public class HomeController : Controller
         _imageProcessingService = imageProcessingService;
         _fileDeletionSchedulerService = fileDeletionSchedulerService;
         _logger = logger;
-        _logger.LogInformation("HomeController initialized");
     }
 
     [HttpGet]
@@ -98,12 +107,16 @@ public class HomeController : Controller
         return View(model);
     }
 
+    // GET /ping — lightweight liveness probe for uptime monitors and manual checks.
     [HttpGet("ping")]
     public IActionResult Ping()
     {
         return Ok("Server is running");
     }
 
+    // POST /Home/Upload — validates the file, generates web/thumbnail variants via
+    // ImageProcessingService, uploads all variants to S3, persists metadata in DynamoDB,
+    // and schedules an in-process expiry timer. Re-renders Index on both success and failure.
     [HttpPost]
     public async Task<IActionResult> Upload(
         IFormFile file,
@@ -191,6 +204,9 @@ public class HomeController : Controller
         return View("Index");
     }
 
+    // GET /download/{fileName} — streams the original uploaded file to the browser.
+    // Enforces visibility and expiry before serving; falls back to the web variant
+    // for files uploaded before the original-preservation feature was added.
     [HttpGet("download/{fileName}")]
     public async Task<IActionResult> Download(string fileName)
     {
@@ -255,6 +271,8 @@ public class HomeController : Controller
         }
     }
 
+    // GET /thumbnail/{fileId} — serves the 220×220 WebP thumbnail.
+    // Applies the same visibility and expiry checks as the download endpoint.
     [HttpGet("thumbnail/{fileId}")]
     public async Task<IActionResult> Thumbnail(string fileId)
     {
@@ -299,6 +317,10 @@ public class HomeController : Controller
         }
     }
 
+    // POST /delete/{fileId} — user-initiated deletion. Removes all three S3 variants
+    // (web, thumbnail, original) independently so a missing variant cannot block the
+    // others, then removes the DynamoDB metadata record.
+    // Available to guests (for their own expiring uploads) and authenticated owners.
     [HttpPost("delete/{fileId}")]
     public async Task<IActionResult> Delete(string fileId)
     {
@@ -375,6 +397,9 @@ public class HomeController : Controller
         }
     }
 
+    // POST /visibility/{fileId} — toggles a file between public and private.
+    // Requires authentication and ownership. Redirects back to the optional returnUrl
+    // (validated as local) or falls back to My Images.
     [Authorize]
     [HttpPost("visibility/{fileId}")]
     public async Task<IActionResult> UpdateVisibility(string fileId, string visibilityOption, string? returnUrl = null)
@@ -407,6 +432,8 @@ public class HomeController : Controller
         return RedirectToAction(nameof(MyImages));
     }
 
+    // Returns the NameIdentifier claim value, which is the normalised (upper-cased)
+    // username set during sign-in. Null when the user is not authenticated.
     private string? GetCurrentUserId()
     {
         return User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -466,6 +493,7 @@ public class HomeController : Controller
         return GuestRetention;
     }
 
+    // Returns a human-readable label for the retention period shown after upload.
     private static string GetRetentionDisplayText(TimeSpan retention)
     {
         if (retention == OneHourRetention)
@@ -498,6 +526,7 @@ public class HomeController : Controller
         return string.Equals(visibilityOption, PublicVisibilityOption, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Formats a countdown TimeSpan into a short display string for the My Images table.
     private static string FormatRemainingTime(TimeSpan remaining)
     {
         if (remaining <= TimeSpan.Zero)
