@@ -10,6 +10,7 @@ infra/
 
 # Documentation
 README.md
+Local Setup ReadMe.md
 
 # Local secrets and environment overrides
 .env
