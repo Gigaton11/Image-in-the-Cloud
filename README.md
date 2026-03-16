@@ -1,8 +1,8 @@
 # Image in the Cloud
 
-## Live Demo
+## 🔴 Live Demo
 
-### [Image in the Cloud](https://9q4mjgxsfd.eu-west-1.awsapprunner.com/)
+### [Image in the Cloud](https://9q4mjgxsfd.eu-west-1.awsapprunner.com/) (link)
 
 | Field          | Value            |
 |----------------|------------------|
@@ -16,7 +16,7 @@
 
 ## Description
 
-Image in the Cloud is an ASP.NET Core MVC application for temporary uploading, sharing and managing images with AWS-backed storage and metadata.
+Image in the Cloud is an ASP.NET Core (.NET 10) application for temporary uploading, sharing and managing images with AWS-backed storage and metadata.
 
 It includes account-based access, image processing (original + web + thumbnail variants), time-based retention, and optional password reset email delivery via SES.
 
