@@ -28,7 +28,6 @@ artifacts/
 .env
 .env.*
 !.env.example
-Local Setup ReadMe.md
 
 # OS files
 .DS_Store
@@ -42,11 +41,13 @@ crash.log
 crash.*.log
 override.tf
 override.tf.json
+*.tfplan
 *_override.tf
 *_override.tf.json
 .terraformrc
 terraform.rc
 *.tfvars
+*.tfvars.json
 
 # Keep example Terraform variables checked in
 !*.tfvars.example

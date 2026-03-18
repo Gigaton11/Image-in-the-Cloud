@@ -40,6 +40,3 @@ It includes account-based access, image processing (original + web + thumbnail v
 - AWS SES v2 (optional password reset email delivery) (To Be Added)
 - SixLabors ImageSharp (image processing)
 - Terraform (optional AWS infrastructure provisioning)
-
-
-<img width="932" height="648" alt="image" src="https://github.com/user-attachments/assets/fdfb1f7c-441e-4568-bb86-28e24931b92c" />

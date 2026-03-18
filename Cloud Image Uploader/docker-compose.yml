@@ -6,7 +6,13 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Local container runs plain HTTP on port 8080 and talks directly to AWS.
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      UseHttps: "false"
+      UseForwardedHeaders: "false"
       AWS__AccessKey: ${AWS_ACCESS_KEY}
       AWS__SecretKey: ${AWS_SECRET_KEY}
-      AWS__Region: eu-central-1
-      AWS__BucketName: tasos-image-uploader-dev
+      AWS__Region: eu-north-1
+      AWS__BucketName: ${AWS_BUCKET_NAME}
+      AWS__AutoCreateTables: "false"
+      Email__EnableSesDelivery: "false"

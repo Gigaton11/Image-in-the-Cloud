@@ -10,12 +10,14 @@ infra/
 
 # Documentation
 README.md
-Local Setup ReadMe.md
 
 # Local secrets and environment overrides
 .env
 .env.*
 !.env.example
+
+# Development-only settings are not needed in the production image.
+appsettings.Development.json
 
 # IDE/tooling
 *.user

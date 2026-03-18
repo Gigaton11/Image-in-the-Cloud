@@ -11,6 +11,7 @@ public class ExpiredFileCleanupService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly FileDeletionSchedulerService _fileDeletionSchedulerService;
     private readonly ILogger<ExpiredFileCleanupService> _logger;
+    private readonly SemaphoreSlim _cleanupGate = new(1, 1);
 
     public ExpiredFileCleanupService(
         IServiceScopeFactory scopeFactory,
@@ -53,36 +54,57 @@ public class ExpiredFileCleanupService : BackgroundService
         _logger.LogInformation("Expired file cleanup worker stopped");
     }
 
-    private async Task CleanupExpiredFilesAsync(CancellationToken cancellationToken)
+    // Triggers a one-off cleanup pass, useful for external schedulers when instances scale to zero.
+    public async Task<int> RunCleanupOnceAsync(CancellationToken cancellationToken = default)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
+        _logger.LogInformation("Manual expired file cleanup requested");
+        var deletedCount = await CleanupExpiredFilesAsync(cancellationToken);
+        _logger.LogInformation("Manual expired file cleanup finished. Deleted={DeletedCount}", deletedCount);
+        return deletedCount;
+    }
 
-        // Safety net in case per-file scheduled task was missed.
-        var expiredFileIds = await dynamoDbService.GetExpiredFileIdsAsync();
-        if (expiredFileIds.Count == 0)
+    private async Task<int> CleanupExpiredFilesAsync(CancellationToken cancellationToken)
+    {
+        await _cleanupGate.WaitAsync(cancellationToken);
+        try
         {
-            return;
+            using var scope = _scopeFactory.CreateScope();
+            var dynamoDbService = scope.ServiceProvider.GetRequiredService<DynamoDbService>();
+
+            // Safety net in case per-file scheduled task was missed.
+            var expiredFileIds = await dynamoDbService.GetExpiredFileIdsAsync();
+            if (expiredFileIds.Count == 0)
+            {
+                return 0;
+            }
+
+            _logger.LogInformation("Deleting {Count} expired file(s)", expiredFileIds.Count);
+            var deletedCount = 0;
+
+            foreach (var fileId in expiredFileIds)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                try
+                {
+                    await _fileDeletionSchedulerService.DeleteFileAndMetadataAsync(fileId);
+                    deletedCount++;
+                    _logger.LogInformation("Expired file deleted successfully: {FileId}", fileId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to delete expired file: {FileId}", fileId);
+                }
+            }
+
+            return deletedCount;
         }
-
-        _logger.LogInformation("Deleting {Count} expired file(s)", expiredFileIds.Count);
-
-        foreach (var fileId in expiredFileIds)
+        finally
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
-
-            try
-            {
-                await _fileDeletionSchedulerService.DeleteFileAndMetadataAsync(fileId);
-                _logger.LogInformation("Expired file deleted successfully: {FileId}", fileId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete expired file: {FileId}", fileId);
-            }
+            _cleanupGate.Release();
         }
     }
 
