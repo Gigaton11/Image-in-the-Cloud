@@ -1,7 +1,6 @@
 ## 🔴Live Demo
 
 ### [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
-### (Google Cloud Run)
 
 | Field    | Value           |
 |----------|-----------------|
