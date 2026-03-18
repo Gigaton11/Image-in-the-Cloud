@@ -1,42 +1,57 @@
-## 🔴 Live Demo
+## 🔴Live Demo
 
 ### [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
+### (Google Cloud Run)
 
-| Field          | Value            |
-|----------------|------------------|
-| Username       | `Demo`           |
-| Email          | `test@aws.demo`  |
-| Password       | `demo123`        |
+| Field    | Value           |
+|----------|-----------------|
+| Username | `Demo`          |
+| Email    | `test@aws.demo` |
+| Password | `demo123`       |
 
-> Video demo coming soon.
+> The public demo is hosted on Google Cloud Run. Storage, metadata, and optional email delivery still live in AWS.
 
----
+## Overview
 
-## Description
+Cloud Image Uploader is an ASP.NET Core MVC app for short-lived image sharing.
 
-Image in the Cloud is an ASP.NET Core MVC application for temporary uploading, sharing and managing images with AWS-backed storage and metadata and live demo deployed on Google Cloud using secret manager.
+Each upload stores:
 
-It includes account-based access, image processing (original + web + thumbnail variants), time-based retention, and optional password reset email delivery via SES.
+- the original image for downloads
+- a web-optimized WebP variant
+- a thumbnail WebP variant
+- metadata, ownership, expiry, and download history in DynamoDB
 
-## Core Features
+The app supports guest uploads for quick sharing and authenticated uploads for private access, longer retention windows, and an owner gallery.
 
-- Drag-and-drop upload with live progress feedback
-- Image processing pipeline (original, web-optimized WebP, thumbnail WebP)
-- Guest and authenticated upload modes
-- Retention controls:
-  - Guest: 10 minutes
-  - Signed-in: 10 minutes, 1 hour, 6 hours, 1 day
-- Visibility controls for signed-in users (public/private)
-- Personal image library page for signed-in users
-- Secure download and thumbnail endpoints with ownership checks
-- Background cleanup for expired files
-- Account registration, Login-Logout, (forgot/reset with SES implementation) 
+## Current Capabilities
+
+- Drag-and-drop uploads with progress feedback
+- Guest uploads with a fixed 10-minute lifetime
+- Authenticated uploads with 10 minutes, 1 hour, 6 hours, or 1 day retention
+- Public/private visibility controls for signed-in users
+- Original download plus thumbnail and optimized web variants
+- Password reset flow with optional SES delivery and development fallback links
+- In-process expiry scheduling plus a periodic cleanup safety-net scan
+- My Images gallery for signed-in users
+
+## Request Flow
+
+1. `HomeController` validates the upload and resolves retention plus visibility.
+2. `ImageProcessingService` creates the WebP web variant and thumbnail.
+3. `S3Service` uploads the original file and both processed variants to S3.
+4. `DynamoDbService` stores metadata, users, password reset tokens, and download records in DynamoDB.
+5. `FileDeletionSchedulerService` schedules immediate expiry cleanup, while `ExpiredFileCleanupService` catches anything missed after restarts.
 
 ## Tech Stack
 
-- .NET 10 (ASP.NET Core MVC)
-- AWS S3 (object storage)
-- AWS DynamoDB (metadata, users, reset tokens, download logs)
-- AWS SES v2 (optional password reset email delivery) (To Be Added)
-- SixLabors ImageSharp (image processing)
-- Terraform (optional AWS infrastructure provisioning)
+- .NET 10 ASP.NET Core MVC
+- AWS S3 for object storage
+- AWS DynamoDB for metadata, users, password reset tokens, and download records
+- AWS SES v2 for optional password reset delivery
+- SixLabors ImageSharp for image processing
+- Terraform for optional AWS infrastructure provisioning
+- Docker and docker compose for local container runs
+- Google Cloud Run or AWS App Runner for hosting
+
+### *Local Deployment is on the next readme.
