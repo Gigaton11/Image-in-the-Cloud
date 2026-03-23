@@ -5,7 +5,6 @@
 | Field    | Value           |
 |----------|-----------------|
 | Username | `Demo`          |
-| Email    | `test@aws.demo` |
 | Password | `demo123`       |
 
 > The public demo is hosted on Google Cloud Run. Storage, metadata, and optional email delivery still live in AWS.
