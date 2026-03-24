@@ -1,6 +1,5 @@
-## 🔴Live Demo
+## 🟢 [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
 
-### [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
 
 | Field    | Value           |
 |----------|-----------------|
