@@ -8,6 +8,9 @@
 
 > The public demo is hosted on Google Cloud Run. Storage, metadata, and optional email delivery still live in AWS.
 
+## Screenshot of a successful upload
+||<img width="1213" height="1254" alt="image" src="https://github.com/user-attachments/assets/2dc04f02-5c72-4603-9b3f-65f53977b6bc" />||
+
 ## Overview
 
 Cloud Image Uploader is an ASP.NET Core MVC app for short-lived image sharing.
