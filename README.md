@@ -1,4 +1,7 @@
-## 🟢 [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
+## Image in the Cloud
+Webapp for safe image sharing with temporary private or public links.
+## 🟢 Live Demo
+Visit [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
 
 
 | Field    | Value           |
@@ -10,7 +13,7 @@
 
 ## Screenshoots
 <summary>After a successful upload</summary> <details><img width="1213" height="1254" alt="image" src="https://github.com/user-attachments/assets/2dc04f02-5c72-4603-9b3f-65f53977b6bc" /></details>
-<summary>List of uploaded images/summary> <details><img width="1003" height="1219" alt="image" src="https://github.com/user-attachments/assets/80f8c811-05ea-44b0-954c-c8202eeea86d" /></details>
+<summary>List of uploaded images</summary> <details><img width="1003" height="1219" alt="image" src="https://github.com/user-attachments/assets/80f8c811-05ea-44b0-954c-c8202eeea86d" /></details>
 
 
 ## Overview
