@@ -12,10 +12,8 @@ Visit [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west
 > The public demo is hosted on Google Cloud Run. Storage, metadata, and optional email delivery still live in AWS.
 
 ## Screenshots
-<summary>Home Page</summary> <details><img width="1372" height="1209" alt="image" src="https://github.com/user-attachments/assets/78acaaa4-8aa8-44de-9480-dbb8a2a89001" /></details>
-<summary>Forecast Page</summary> <details><img width="1204" height="1217" alt="image" src="https://github.com/user-attachments/assets/799cacba-42d0-4904-9649-0463e473c805" />
-</details>
-
+<summary>After a successful upload</summary> <details><img width="1213" height="1254" alt="image" src="https://github.com/user-attachments/assets/2dc04f02-5c72-4603-9b3f-65f53977b6bc" /></details>
+<summary>List of uploaded images</summary> <details><img width="1003" height="1219" alt="image" src="https://github.com/user-attachments/assets/80f8c811-05ea-44b0-954c-c8202eeea86d" /></details>
 
 ## Overview
 
