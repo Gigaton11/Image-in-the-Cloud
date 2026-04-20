@@ -1,5 +1,5 @@
 ## Image in the Cloud ☁️
-Webapp for safe image sharing with temporary private or public links.
+Webapp built with ASP.NET Core for image sharing with temporary private or public links.
 
 ## 🟢 Live Demo
 Visit [Image in the Cloud](https://cloud-image-uploader-908848556717.europe-west1.run.app/)
